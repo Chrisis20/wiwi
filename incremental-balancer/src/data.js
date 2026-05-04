@@ -1,22 +1,21 @@
 export const EMPTY_MODEL = {
-  targetTimeSeconds: 600,
+  targetSeconds: 600,
   simulationMinutes: 60,
-  ticksPerSecond: 1,
   currencies: [
     {
       id: "currency_1",
       name: "Currency 1",
-      startingAmount: 0
+      start: 0
     }
   ],
-  generators: [
+  sources: [
     {
-      id: "gen_1",
+      id: "source_1",
       name: "Income Source 1",
       currencyId: "currency_1",
-      baseAmount: 1,
+      amount: 1,
       everySeconds: 1,
-      growthPerArea: 1
+      areaGrowth: 1
     }
   ],
   upgrades: [],
@@ -31,64 +30,63 @@ export const EMPTY_MODEL = {
 };
 
 export const EXAMPLE_MODEL = {
-  targetTimeSeconds: 600,
+  targetSeconds: 600,
   simulationMinutes: 90,
-  ticksPerSecond: 1,
   currencies: [
     {
       id: "rune",
       name: "Rune",
-      startingAmount: 0
+      start: 0
     },
     {
       id: "essence",
       name: "Essence",
-      startingAmount: 0
+      start: 0
     },
     {
       id: "soul",
       name: "Soul",
-      startingAmount: 0
+      start: 0
     }
   ],
-  generators: [
+  sources: [
     {
-      id: "gen_rune",
+      id: "source_rune",
       name: "Rune Source",
       currencyId: "rune",
-      baseAmount: 5,
+      amount: 5,
       everySeconds: 1,
-      growthPerArea: 1.4
+      areaGrowth: 1.35
     },
     {
-      id: "gen_essence",
+      id: "source_essence",
       name: "Essence Source",
       currencyId: "essence",
-      baseAmount: 1,
+      amount: 1,
       everySeconds: 5,
-      growthPerArea: 1.25
+      areaGrowth: 1.2
     }
   ],
   upgrades: [
     {
-      id: "up_rune_power",
+      id: "upgrade_rune",
       name: "Rune Multiplier",
-      currencyId: "rune",
-      affectsCurrencyId: "rune",
+      costCurrencyId: "rune",
+      affectedCurrencyId: "rune",
       firstCost: 50,
       costGrowth: 2,
-      multiplierPerBuy: 1.35,
+      multiplier: 1.35,
       maxLevel: 20,
       unlockArea: 1
     },
     {
-      id: "up_all_power",
+      id: "upgrade_global",
       name: "Global Multiplier",
-      currencyId: "essence",
-      affectsCurrencyId: "all",
+      costCurrencyId: "essence",
+      affectedCurrencyId: "all",
       firstCost: 25,
-      costGrowth: 2.4,
-      multiplierPerBuy: 1.25,
+      costGrowth: 2.35,
+      multiplier: 1.25,
       maxLevel: 15,
       unlockArea: 2
     }
