@@ -1,676 +1,180 @@
 import React, { useMemo, useState } from "react";
-import { EMPTY_MODEL, EXAMPLE_MODEL } from "./data.js";
-import {
-  clone,
-  compact,
-  timeText,
-  normalizeModel,
-  simulateEconomy,
-  getWarnings,
-  suggestNextArea,
-  runTests,
-  makeId,
-  positive,
-  atLeast,
-  clamp,
-  updateAt,
-  removeAt,
-  currencyName,
-  formatCurrencyList
-} from "./logic.js";
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { motion } from "framer-motion";
+import { EMPTY_MODEL, EXAMPLE_MODEL } from "./balancerData";
+import { clone, compact, timeText, normalizeModel, simulateEconomy, getWarnings, suggestNextArea, runTests, makeId, positive, positiveNonZero, clamp, toNumber, updateArrayItem, currencyName, formatCurrencyList } from "./balancerLogic";
+import { Icon, NumberField, TextField, CurrencySelect, CurrencyAmountRows } from "./balancerUi";
 
-function NumberInput({ label, value, onChange, min = 0, step = 1, suffix = "" }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <div className="inputRow">
-        <input
-          type="number"
-          min={min}
-          step={step}
-          value={Number.isFinite(Number(value)) ? value : ""}
-          onChange={(event) => onChange(Number(event.target.value))}
-        />
-        {suffix && <b>{suffix}</b>}
-      </div>
-    </label>
-  );
+function Card({ children, className = "" }) {
+  return <div className={`rounded-2xl border shadow-xl ${className}`}>{children}</div>;
 }
 
-function TextInput({ label, value, onChange }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input value={value || ""} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
+function CardContent({ children, className = "" }) {
+  return <div className={className}>{children}</div>;
 }
 
-function CurrencySelect({ model, value, onChange, includeAll = false }) {
-  const fallback = model.currencies[0]?.id || "currency_1";
-  const validValue =
-    value === "all" && includeAll
-      ? "all"
-      : model.currencies.some((currency) => currency.id === value)
-      ? value
-      : fallback;
-
-  return (
-    <select value={validValue} onChange={(event) => onChange(event.target.value)}>
-      {includeAll && <option value="all">All currencies</option>}
-      {model.currencies.map((currency) => (
-        <option key={currency.id} value={currency.id}>
-          {currency.name}
-        </option>
-      ))}
-    </select>
-  );
+function Button({ children, className = "", ...props }) {
+  return <button className={`rounded-xl px-4 py-2 font-bold transition ${className}`} {...props}>{children}</button>;
 }
 
-function CurrencyRows({ title, model, entries, onChange, emptyText }) {
-  const safeEntries = Array.isArray(entries) ? entries : [];
-  const fallback = model.currencies[0]?.id || "currency_1";
-
-  function addEntry() {
-    onChange([
-      ...safeEntries,
-      {
-        currencyId: fallback,
-        amount: 0
-      }
-    ]);
-  }
-
-  function updateEntry(index, patch) {
-    onChange(updateAt(safeEntries, index, patch));
-  }
-
-  function removeEntry(index) {
-    onChange(removeAt(safeEntries, index));
-  }
-
-  return (
-    <div className="miniSection">
-      <div className="miniHeader">
-        <h4>{title}</h4>
-        <button type="button" onClick={addEntry}>
-          Add
-        </button>
-      </div>
-
-      {safeEntries.length === 0 && <p className="mutedBox">{emptyText}</p>}
-
-      {safeEntries.map((entry, index) => (
-        <div className="currencyRow" key={`${entry.currencyId}_${index}`}>
-          <CurrencySelect
-            model={model}
-            value={entry.currencyId}
-            onChange={(currencyId) => updateEntry(index, { currencyId })}
-          />
-
-          <input
-            type="number"
-            min="0"
-            value={Number.isFinite(Number(entry.amount)) ? entry.amount : ""}
-            onChange={(event) => updateEntry(index, { amount: positive(event.target.value, 0) })}
-          />
-
-          <button type="button" className="dangerButton" onClick={() => removeEntry(index)}>
-            -
-          </button>
-        </div>
-      ))}
-    </div>
-  );
+function Badge({ children, className = "" }) {
+  return <span className={`inline-flex items-center px-3 py-1 text-sm font-bold ${className}`}>{children}</span>;
 }
 
-export default function App() {
+function TabButton({ active, children, onClick }) {
+  return <button onClick={onClick} className={`rounded-xl px-3 py-2 text-sm font-bold ${active ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-200 hover:bg-slate-700"}`}>{children}</button>;
+}
+
+export default function IncrementalGameBalancer() {
   const [model, setModel] = useState(() => clone(EMPTY_MODEL));
-  const [tab, setTab] = useState("main");
   const [showTests, setShowTests] = useState(false);
+  const [tab, setTab] = useState("global");
 
-  const normalized = useMemo(() => normalizeModel(model), [model]);
-  const simulation = useMemo(() => simulateEconomy(normalized), [normalized]);
-  const warnings = useMemo(() => getWarnings(normalized, simulation), [normalized, simulation]);
-  const nextArea = useMemo(() => suggestNextArea(normalized, simulation), [normalized, simulation]);
+  const normalizedModel = useMemo(() => normalizeModel(model), [model]);
+  const sim = useMemo(() => simulateEconomy(normalizedModel), [normalizedModel]);
+  const warnings = useMemo(() => getWarnings(normalizedModel, sim), [normalizedModel, sim]);
+  const next = useMemo(() => suggestNextArea(normalizedModel, sim), [normalizedModel, sim]);
   const tests = useMemo(() => runTests(), []);
   const testsPassed = tests.every((test) => test.pass);
 
-  const mainCurrency = normalized.currencies[0]?.id || "currency_1";
-  const reachedAreas = simulation.areaRows.filter((area) => area.unlocked).length;
-  const reachedSegments = simulation.areaRows.filter((area) => area.index > 1 && area.segmentTime != null);
+  const reachedAreas = sim.areaRows.filter((area) => area.unlocked).length;
+  const reachedSegments = sim.areaRows.filter((area) => area.segmentTime != null && area.index > 1);
+  const avgSegment = reachedSegments.length ? reachedSegments.reduce((sum, area) => sum + area.segmentTime, 0) / reachedSegments.length : null;
+  const balanceDiff = avgSegment == null ? null : Math.abs(avgSegment - normalizedModel.targetTimeSeconds) / normalizedModel.targetTimeSeconds;
+  const grade = balanceDiff == null ? "Not enough data" : balanceDiff < 0.25 ? "Great" : balanceDiff < 0.65 ? "Good" : balanceDiff < 1.2 ? "Needs work" : "Unbalanced";
+  const chartCurrency = normalizedModel.currencies[0]?.id || "currency_1";
+  const incomeChart = normalizedModel.currencies.map((currency) => ({ name: currency.name, income: Number((sim.finalIncome[currency.id] || 0).toFixed(2)) }));
 
-  const averageStep =
-    reachedSegments.length > 0
-      ? reachedSegments.reduce((sum, area) => sum + area.segmentTime, 0) / reachedSegments.length
-      : null;
-
-  const balanceGrade =
-    averageStep == null
-      ? "Not enough data"
-      : Math.abs(averageStep - normalized.targetSeconds) / normalized.targetSeconds < 0.25
-      ? "Great"
-      : Math.abs(averageStep - normalized.targetSeconds) / normalized.targetSeconds < 0.65
-      ? "Good"
-      : Math.abs(averageStep - normalized.targetSeconds) / normalized.targetSeconds < 1.2
-      ? "Needs work"
-      : "Unbalanced";
-
-  function setGlobal(key, value) {
-    setModel((current) => ({
-      ...current,
-      [key]: value
-    }));
-  }
-
-  function setCurrency(index, patch) {
-    setModel((current) => {
-      const clean = normalizeModel(current);
-      return {
-        ...clean,
-        currencies: updateAt(clean.currencies, index, patch)
-      };
-    });
-  }
-
-  function setSource(index, patch) {
-    setModel((current) => {
-      const clean = normalizeModel(current);
-      return {
-        ...clean,
-        sources: updateAt(clean.sources, index, patch)
-      };
-    });
-  }
-
-  function setUpgrade(index, patch) {
-    setModel((current) => {
-      const clean = normalizeModel(current);
-      return {
-        ...clean,
-        upgrades: updateAt(clean.upgrades, index, patch)
-      };
-    });
-  }
-
-  function setArea(index, patch) {
-    setModel((current) => {
-      const clean = normalizeModel(current);
-      return {
-        ...clean,
-        areas: updateAt(clean.areas, index, patch)
-      };
-    });
-  }
+  const setGlobal = (key, value) => setModel((current) => ({ ...current, [key]: value }));
+  const setCurrency = (index, patch) => setModel((current) => ({ ...current, currencies: updateArrayItem(normalizeModel(current).currencies, index, patch) }));
+  const setGenerator = (index, patch) => setModel((current) => ({ ...current, generators: updateArrayItem(normalizeModel(current).generators, index, patch) }));
+  const setUpgrade = (index, patch) => setModel((current) => ({ ...current, upgrades: updateArrayItem(normalizeModel(current).upgrades, index, patch) }));
+  const setArea = (index, patch) => setModel((current) => ({ ...current, areas: updateArrayItem(normalizeModel(current).areas, index, patch) }));
 
   function addCurrency() {
     setModel((current) => {
-      const clean = normalizeModel(current);
-      const id = makeId("currency", clean.currencies);
-
-      return {
-        ...clean,
-        currencies: [
-          ...clean.currencies,
-          {
-            id,
-            name: `Currency ${clean.currencies.length + 1}`,
-            start: 0
-          }
-        ]
-      };
+      const normalized = normalizeModel(current);
+      const id = makeId("currency", normalized.currencies);
+      return { ...normalized, currencies: [...normalized.currencies, { id, name: `Currency ${normalized.currencies.length + 1}`, startingAmount: 0 }] };
     });
   }
 
-  function addSource() {
+  function addGenerator() {
     setModel((current) => {
-      const clean = normalizeModel(current);
-
-      return {
-        ...clean,
-        sources: [
-          ...clean.sources,
-          {
-            id: makeId("source", clean.sources),
-            name: `Income Source ${clean.sources.length + 1}`,
-            currencyId: clean.currencies[0].id,
-            amount: 1,
-            everySeconds: 1,
-            areaGrowth: 1
-          }
-        ]
-      };
+      const normalized = normalizeModel(current);
+      return { ...normalized, generators: [...normalized.generators, { id: makeId("gen", normalized.generators), name: `Income Source ${normalized.generators.length + 1}`, currencyId: normalized.currencies[0].id, baseAmount: 1, everySeconds: 1, growthPerArea: 1 }] };
     });
   }
 
   function addUpgrade() {
     setModel((current) => {
-      const clean = normalizeModel(current);
-
-      return {
-        ...clean,
-        upgrades: [
-          ...clean.upgrades,
-          {
-            id: makeId("upgrade", clean.upgrades),
-            name: `Upgrade ${clean.upgrades.length + 1}`,
-            costCurrencyId: clean.currencies[0].id,
-            affectedCurrencyId: clean.currencies[0].id,
-            firstCost: 100,
-            costGrowth: 2,
-            multiplier: 1.5,
-            maxLevel: 10,
-            unlockArea: 1
-          }
-        ]
-      };
+      const normalized = normalizeModel(current);
+      return { ...normalized, upgrades: [...normalized.upgrades, { id: makeId("upgrade", normalized.upgrades), name: `Upgrade ${normalized.upgrades.length + 1}`, currencyId: normalized.currencies[0].id, affectsCurrencyId: normalized.currencies[0].id, firstCost: 100, costGrowth: 2, multiplierPerBuy: 1.5, maxLevel: 10, unlockArea: 1 }] };
     });
   }
 
-  function addArea() {
+  function addBlankArea() {
     setModel((current) => {
-      const clean = normalizeModel(current);
-
-      return {
-        ...clean,
-        areas: [
-          ...clean.areas,
-          {
-            id: makeId("area", clean.areas),
-            name: `Area ${clean.areas.length + 1}`,
-            costs: [],
-            rewards: []
-          }
-        ]
-      };
+      const normalized = normalizeModel(current);
+      return { ...normalized, areas: [...normalized.areas, { id: makeId("area", normalized.areas), name: `Area ${normalized.areas.length + 1}`, costs: [], rewards: [] }] };
     });
   }
 
   function addSuggestedArea() {
     setModel((current) => {
-      const clean = normalizeModel(current);
-
-      return {
-        ...clean,
-        areas: [
-          ...clean.areas,
-          {
-            id: makeId("area", clean.areas),
-            name: nextArea.name,
-            costs: nextArea.costs,
-            rewards: []
-          }
-        ]
-      };
+      const normalized = normalizeModel(current);
+      return { ...normalized, areas: [...normalized.areas, { id: makeId("area", normalized.areas), name: next.name, costs: next.costs.map((cost) => ({ ...cost, amount: Math.round(cost.amount) })), rewards: [] }] };
     });
   }
 
   return (
-    <main className="app">
-      <header className="hero">
-        <div>
-          <p className="pill">Incremental Game Balancer</p>
-          <h1>Economy Simulator</h1>
-          <p className="subtitle">
-            Build currencies, passive income, upgrades, stacked multipliers, areas, costs, and rewards.
-          </p>
-        </div>
-
-        <div className="statsGrid topStats">
-          <div className="statCard">
-            <span>Balance</span>
-            <strong>{balanceGrade}</strong>
+    <div className="min-h-screen bg-slate-950 text-white p-4 md:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <Icon name="app" className="w-7 h-7" />
+              <Badge className="rounded-full bg-indigo-600 text-white">Clean Modular Builder</Badge>
+              <Badge className={testsPassed ? "rounded-full border border-emerald-400 text-emerald-200" : "rounded-full border border-red-400 text-red-200"}>Tests {testsPassed ? "passed" : "failed"}</Badge>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">Incremental Economy Simulator</h1>
+            <p className="text-slate-200 mt-2 max-w-3xl">Starts clean. Each area can require many currencies and give many rewards.</p>
           </div>
+          <Card className="bg-slate-900 border-slate-700">
+            <CardContent className="p-4 grid grid-cols-3 gap-6">
+              <div><p className="text-xs font-bold text-slate-300">Balance</p><p className="text-2xl font-black text-white">{grade}</p></div>
+              <div><p className="text-xs font-bold text-slate-300">Areas reached</p><p className="text-2xl font-black text-white">{reachedAreas}/{normalizedModel.areas.length}</p></div>
+              <div><p className="text-xs font-bold text-slate-300">Avg step</p><p className="text-2xl font-black text-white">{avgSegment == null ? "—" : timeText(avgSegment)}</p></div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-          <div className="statCard">
-            <span>Areas reached</span>
-            <strong>
-              {reachedAreas}/{normalized.areas.length}
-            </strong>
-          </div>
-
-          <div className="statCard">
-            <span>Avg step</span>
-            <strong>{averageStep == null ? "—" : timeText(averageStep)}</strong>
-          </div>
-        </div>
-      </header>
-
-      <section className="layout">
-        <aside className="panel builder">
-          <h2>Model Builder</h2>
-
-          <div className="tabs">
-            {["main", "money", "sources", "upgrades", "areas"].map((name) => (
-              <button
-                key={name}
-                className={tab === name ? "active" : ""}
-                onClick={() => setTab(name)}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-
-          {tab === "main" && (
-            <div className="section">
-              <NumberInput
-                label="Target time per area"
-                value={normalized.targetSeconds / 60}
-                suffix="min"
-                step={0.5}
-                onChange={(value) => setGlobal("targetSeconds", atLeast(value, 0.1) * 60)}
-              />
-
-              <NumberInput
-                label="Simulation length"
-                value={normalized.simulationMinutes}
-                suffix="min"
-                onChange={(value) => setGlobal("simulationMinutes", clamp(value, 1, 10080))}
-              />
-
-              <div className="buttonGrid">
-                <button onClick={() => setModel(clone(EMPTY_MODEL))}>Clean</button>
-                <button onClick={() => setModel(clone(EXAMPLE_MODEL))}>Example</button>
-                <button onClick={() => setShowTests((value) => !value)}>
-                  {showTests ? "Hide tests" : "Show tests"}
-                </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Card className="lg:col-span-4 bg-slate-900 border-slate-700">
+            <CardContent className="p-5 space-y-5">
+              <div className="flex items-center gap-2"><Icon name="economy" /><h2 className="text-xl font-black text-white">Model Builder</h2></div>
+              <div className="grid grid-cols-5 gap-2">
+                {["global", "currencies", "sources", "upgrades", "areas"].map((name) => <TabButton key={name} active={tab === name} onClick={() => setTab(name)}>{name === "global" ? "Main" : name === "currencies" ? "Money" : name === "upgrades" ? "Ups" : name[0].toUpperCase() + name.slice(1)}</TabButton>)}
               </div>
 
-              {showTests && (
-                <div className="tests">
-                  {tests.map((test) => (
-                    <div key={test.name}>
-                      <span>{test.name}</span>
-                      <b className={test.pass ? "goodText" : "badText"}>
-                        {test.pass ? "PASS" : "FAIL"}
-                      </b>
-                    </div>
-                  ))}
+              {tab === "global" && <div className="space-y-4">
+                <NumberField label="Target time per unlock" value={normalizedModel.targetTimeSeconds / 60} setValue={(value) => setGlobal("targetTimeSeconds", positiveNonZero(value, 0.1) * 60)} suffix="min" step={0.5} />
+                <NumberField label="Simulation length" value={normalizedModel.simulationMinutes} setValue={(value) => setGlobal("simulationMinutes", clamp(value, 1, 10080))} suffix="min" />
+                <NumberField label="Simulation ticks per second" value={normalizedModel.ticksPerSecond} setValue={(value) => setGlobal("ticksPerSecond", Math.round(clamp(value, 1, 10)))} />
+                <div className="grid grid-cols-3 gap-3">
+                  <Button className="bg-slate-700 hover:bg-slate-600 text-white" onClick={() => setModel(clone(EMPTY_MODEL))}>Clean</Button>
+                  <Button className="bg-indigo-600 hover:bg-indigo-500 text-white" onClick={() => setModel(clone(EXAMPLE_MODEL))}>Example</Button>
+                  <Button className="border border-slate-500 text-white hover:bg-slate-800" onClick={() => setShowTests((value) => !value)}>{showTests ? "Hide" : "Tests"}</Button>
                 </div>
-              )}
-            </div>
-          )}
+                {showTests && <div className="rounded-2xl border border-slate-700 bg-slate-950 p-3 space-y-2"><p className="text-sm font-black text-white">Built-in formula tests</p>{tests.map((test) => <div key={test.name} className="flex items-center justify-between gap-3 text-xs"><span className="text-slate-200">{test.name}</span><span className={test.pass ? "text-emerald-200 font-black" : "text-red-200 font-black"}>{test.pass ? "PASS" : "FAIL"}</span></div>)}</div>}
+              </div>}
 
-          {tab === "money" && (
-            <div className="section">
-              {normalized.currencies.map((currency, index) => (
-                <div className="itemCard" key={currency.id}>
-                  <TextInput
-                    label="Currency name"
-                    value={currency.name}
-                    onChange={(name) => setCurrency(index, { name })}
-                  />
+              {tab === "currencies" && <div className="space-y-4">
+                {normalizedModel.currencies.map((currency, index) => <div key={currency.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3"><TextField label="Currency name" value={currency.name} setValue={(name) => setCurrency(index, { name })} /><NumberField label="Starting amount" value={currency.startingAmount} setValue={(startingAmount) => setCurrency(index, { startingAmount: positive(startingAmount, 0) })} /></div>)}
+                <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white" onClick={addCurrency}>Add Currency</Button>
+              </div>}
 
-                  <NumberInput
-                    label="Starting amount"
-                    value={currency.start}
-                    onChange={(start) => setCurrency(index, { start: positive(start, 0) })}
-                  />
-                </div>
-              ))}
+              {tab === "sources" && <div className="space-y-4">
+                {normalizedModel.generators.map((gen, index) => <div key={gen.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3"><TextField label="Source name" value={gen.name} setValue={(name) => setGenerator(index, { name })} /><div className="space-y-1"><label className="text-xs font-semibold text-slate-200">Produces</label><CurrencySelect model={normalizedModel} value={gen.currencyId} onChange={(currencyId) => setGenerator(index, { currencyId })} /></div><NumberField label="Amount earned" value={gen.baseAmount} setValue={(baseAmount) => setGenerator(index, { baseAmount: positive(baseAmount, 0) })} /><NumberField label="Every X seconds" value={gen.everySeconds} setValue={(everySeconds) => setGenerator(index, { everySeconds: positiveNonZero(everySeconds, 1) })} step={0.5} /><NumberField label="Area growth multiplier" value={gen.growthPerArea} setValue={(growthPerArea) => setGenerator(index, { growthPerArea: Math.max(toNumber(growthPerArea, 1), 1) })} step={0.05} /></div>)}
+                <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white" onClick={addGenerator}>Add Income Source</Button>
+              </div>}
 
-              <button className="fullButton" onClick={addCurrency}>
-                Add Currency
-              </button>
-            </div>
-          )}
+              {tab === "upgrades" && <div className="space-y-4">
+                {normalizedModel.upgrades.length === 0 && <p className="text-sm text-slate-200 rounded-xl bg-slate-800 border border-slate-700 p-3">No upgrades yet.</p>}
+                {normalizedModel.upgrades.map((upgrade, index) => <div key={upgrade.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3"><TextField label="Upgrade name" value={upgrade.name} setValue={(name) => setUpgrade(index, { name })} /><div className="space-y-1"><label className="text-xs font-semibold text-slate-200">Costs currency</label><CurrencySelect model={normalizedModel} value={upgrade.currencyId} onChange={(currencyId) => setUpgrade(index, { currencyId })} /></div><div className="space-y-1"><label className="text-xs font-semibold text-slate-200">Multiplies</label><CurrencySelect model={normalizedModel} value={upgrade.affectsCurrencyId} onChange={(affectsCurrencyId) => setUpgrade(index, { affectsCurrencyId })} includeAll /></div><NumberField label="First cost" value={upgrade.firstCost} setValue={(firstCost) => setUpgrade(index, { firstCost: positive(firstCost, 0) })} /><NumberField label="Cost growth" value={upgrade.costGrowth} setValue={(costGrowth) => setUpgrade(index, { costGrowth: Math.max(toNumber(costGrowth, 1), 1) })} step={0.05} /><NumberField label="Multiplier per buy" value={upgrade.multiplierPerBuy} setValue={(multiplierPerBuy) => setUpgrade(index, { multiplierPerBuy: Math.max(toNumber(multiplierPerBuy, 1), 1) })} step={0.05} /><NumberField label="Max level" value={upgrade.maxLevel} setValue={(maxLevel) => setUpgrade(index, { maxLevel: Math.round(clamp(maxLevel, 1, 999)) })} /><NumberField label="Unlocks at area" value={upgrade.unlockArea} setValue={(unlockArea) => setUpgrade(index, { unlockArea: Math.round(clamp(unlockArea, 1, 999)) })} /></div>)}
+                <Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white" onClick={addUpgrade}>Add Upgrade</Button>
+              </div>}
 
-          {tab === "sources" && (
-            <div className="section">
-              {normalized.sources.map((source, index) => (
-                <div className="itemCard" key={source.id}>
-                  <TextInput
-                    label="Source name"
-                    value={source.name}
-                    onChange={(name) => setSource(index, { name })}
-                  />
+              {tab === "areas" && <div className="space-y-4">
+                {normalizedModel.areas.map((area, index) => <div key={area.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-4"><TextField label="Area name" value={area.name} setValue={(name) => setArea(index, { name })} /><CurrencyAmountRows title="Costs required to unlock this area" model={normalizedModel} entries={area.costs} addLabel="Add Cost" emptyText="Free" onChange={(costs) => setArea(index, { costs })} /><CurrencyAmountRows title="Rewards given when unlocked" model={normalizedModel} entries={area.rewards} addLabel="Add Reward" emptyText="None" onChange={(rewards) => setArea(index, { rewards })} /></div>)}
+                <div className="grid grid-cols-2 gap-3"><Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white" onClick={addBlankArea}>Add Blank Area</Button><Button className="w-full bg-slate-700 hover:bg-slate-600 text-white" onClick={addSuggestedArea}>Add Suggested</Button></div>
+              </div>}
+            </CardContent>
+          </Card>
 
-                  <label className="field">
-                    <span>Produces</span>
-                    <CurrencySelect
-                      model={normalized}
-                      value={source.currencyId}
-                      onChange={(currencyId) => setSource(index, { currencyId })}
-                    />
-                  </label>
-
-                  <NumberInput
-                    label="Amount earned"
-                    value={source.amount}
-                    onChange={(amount) => setSource(index, { amount: positive(amount, 0) })}
-                  />
-
-                  <NumberInput
-                    label="Every X seconds"
-                    value={source.everySeconds}
-                    step={0.5}
-                    onChange={(everySeconds) => setSource(index, { everySeconds: atLeast(everySeconds, 0.000001) })}
-                  />
-
-                  <NumberInput
-                    label="Area growth"
-                    value={source.areaGrowth}
-                    step={0.05}
-                    onChange={(areaGrowth) => setSource(index, { areaGrowth: atLeast(areaGrowth, 1) })}
-                  />
-                </div>
-              ))}
-
-              <button className="fullButton" onClick={addSource}>
-                Add Income Source
-              </button>
-            </div>
-          )}
-
-          {tab === "upgrades" && (
-            <div className="section">
-              {normalized.upgrades.length === 0 && <p className="mutedBox">No upgrades yet.</p>}
-
-              {normalized.upgrades.map((upgrade, index) => (
-                <div className="itemCard" key={upgrade.id}>
-                  <TextInput
-                    label="Upgrade name"
-                    value={upgrade.name}
-                    onChange={(name) => setUpgrade(index, { name })}
-                  />
-
-                  <label className="field">
-                    <span>Costs currency</span>
-                    <CurrencySelect
-                      model={normalized}
-                      value={upgrade.costCurrencyId}
-                      onChange={(costCurrencyId) => setUpgrade(index, { costCurrencyId })}
-                    />
-                  </label>
-
-                  <label className="field">
-                    <span>Multiplies</span>
-                    <CurrencySelect
-                      model={normalized}
-                      value={upgrade.affectedCurrencyId}
-                      includeAll
-                      onChange={(affectedCurrencyId) => setUpgrade(index, { affectedCurrencyId })}
-                    />
-                  </label>
-
-                  <NumberInput
-                    label="First cost"
-                    value={upgrade.firstCost}
-                    onChange={(firstCost) => setUpgrade(index, { firstCost: positive(firstCost, 0) })}
-                  />
-
-                  <NumberInput
-                    label="Cost growth"
-                    value={upgrade.costGrowth}
-                    step={0.05}
-                    onChange={(costGrowth) => setUpgrade(index, { costGrowth: atLeast(costGrowth, 1) })}
-                  />
-
-                  <NumberInput
-                    label="Multiplier per buy"
-                    value={upgrade.multiplier}
-                    step={0.05}
-                    onChange={(multiplier) => setUpgrade(index, { multiplier: atLeast(multiplier, 1) })}
-                  />
-
-                  <NumberInput
-                    label="Max level"
-                    value={upgrade.maxLevel}
-                    onChange={(maxLevel) => setUpgrade(index, { maxLevel: Math.round(clamp(maxLevel, 1, 999)) })}
-                  />
-
-                  <NumberInput
-                    label="Unlocks at area"
-                    value={upgrade.unlockArea}
-                    onChange={(unlockArea) => setUpgrade(index, { unlockArea: Math.round(clamp(unlockArea, 1, 999)) })}
-                  />
-                </div>
-              ))}
-
-              <button className="fullButton" onClick={addUpgrade}>
-                Add Upgrade
-              </button>
-            </div>
-          )}
-
-          {tab === "areas" && (
-            <div className="section">
-              {normalized.areas.map((area, index) => (
-                <div className="itemCard" key={area.id}>
-                  <TextInput
-                    label="Area name"
-                    value={area.name}
-                    onChange={(name) => setArea(index, { name })}
-                  />
-
-                  <CurrencyRows
-                    title="Costs"
-                    model={normalized}
-                    entries={area.costs}
-                    emptyText="Free"
-                    onChange={(costs) => setArea(index, { costs })}
-                  />
-
-                  <CurrencyRows
-                    title="Rewards"
-                    model={normalized}
-                    entries={area.rewards}
-                    emptyText="None"
-                    onChange={(rewards) => setArea(index, { rewards })}
-                  />
-                </div>
-              ))}
-
-              <div className="buttonGrid">
-                <button onClick={addArea}>Add Blank</button>
-                <button onClick={addSuggestedArea}>Add Suggested</button>
-              </div>
-            </div>
-          )}
-        </aside>
-
-        <section className="dashboard">
-          <div className="statsGrid">
-            <div className="statCard">
-              <span>Main balance</span>
-              <strong>{compact(simulation.balances[mainCurrency] || 0)}</strong>
-              <small>{currencyName(normalized, mainCurrency)}</small>
+          <div className="lg:col-span-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="bg-slate-900 border-slate-700"><CardContent className="p-4"><p className="text-xs font-bold text-slate-300">Main balance</p><p className="text-2xl font-black text-white">{compact(sim.balances[chartCurrency] || 0)}</p><p className="text-sm text-slate-200">Final {normalizedModel.currencies[0]?.name}</p></CardContent></Card>
+              <Card className="bg-slate-900 border-slate-700"><CardContent className="p-4"><p className="text-xs font-bold text-slate-300">Income / second</p><p className="text-2xl font-black text-white">{compact(sim.finalIncome[chartCurrency] || 0)}</p><p className="text-sm text-slate-200">Final rate</p></CardContent></Card>
+              <Card className="bg-slate-900 border-slate-700"><CardContent className="p-4"><p className="text-xs font-bold text-slate-300">Purchases made</p><p className="text-2xl font-black text-white">{sim.purchaseLog.length}</p><p className="text-sm text-slate-200">Auto-bought efficient upgrades</p></CardContent></Card>
             </div>
 
-            <div className="statCard">
-              <span>Income / second</span>
-              <strong>{compact(simulation.finalIncome[mainCurrency] || 0)}</strong>
-              <small>{currencyName(normalized, mainCurrency)}</small>
-            </div>
+            <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5"><div className="flex items-center gap-2 mb-4"><Icon name="chart" /><h2 className="text-xl font-black text-white">Main Currency Over Time</h2></div><div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={sim.timeline}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="minute" stroke="#e2e8f0" /><YAxis stroke="#e2e8f0" /><Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #475569", color: "#fff" }} formatter={(value) => compact(value)} labelFormatter={(value) => `Minute ${value}`} /><Line type="monotone" dataKey={chartCurrency} stroke="#a5b4fc" strokeWidth={3} dot={false} /></LineChart></ResponsiveContainer></div></CardContent></Card>
 
-            <div className="statCard">
-              <span>Purchases</span>
-              <strong>{simulation.purchases.length}</strong>
-              <small>Auto-bought upgrades</small>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5"><div className="flex items-center gap-2 mb-4"><Icon name="warning" /><h2 className="text-xl font-black text-white">Balance Warnings</h2></div><div className="space-y-3 max-h-80 overflow-auto pr-1">{warnings.map((warning, index) => <div key={`${warning.text}_${index}`} className={`p-3 rounded-xl text-sm font-semibold ${warning.type === "bad" ? "bg-red-900 text-red-50 border border-red-400" : warning.type === "good" ? "bg-emerald-900 text-emerald-50 border border-emerald-400" : "bg-amber-900 text-amber-50 border border-amber-400"}`}>{warning.text}</div>)}</div></CardContent></Card>
+              <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5 space-y-4"><div className="flex items-center gap-2"><Icon name="area" /><h2 className="text-xl font-black text-white">Suggested Next Area</h2></div><p className="text-sm text-slate-200">Uses your final income and target unlock time.</p><div className="p-3 rounded-xl bg-slate-800 border border-slate-700"><p className="text-xs font-bold text-slate-300">Suggested cost</p><p className="text-xl font-black text-white">{formatCurrencyList(normalizedModel, next.costs, "Free")}</p></div><Button className="w-full bg-indigo-600 hover:bg-indigo-500 text-white" onClick={addSuggestedArea}>Add Suggested Area</Button></CardContent></Card>
             </div>
           </div>
-
-          <div className="panel">
-            <h2>Warnings</h2>
-            <div className="warnings">
-              {warnings.map((warning, index) => (
-                <div key={index} className={`warning ${warning.type}`}>
-                  {warning.text}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel">
-            <h2>Suggested Next Area</h2>
-            <p className="muted">
-              Suggested cost: <b>{formatCurrencyList(normalized, nextArea.costs, "Free")}</b>
-            </p>
-            <button onClick={addSuggestedArea}>Add Suggested Area</button>
-          </div>
-        </section>
-      </section>
-
-      <section className="panel">
-        <h2>Area Progression</h2>
-
-        <div className="tableWrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Area</th>
-                <th>Costs</th>
-                <th>Rewards</th>
-                <th>Reached At</th>
-                <th>Time From Previous</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {simulation.areaRows.map((area) => (
-                <tr key={area.id}>
-                  <td>{area.name}</td>
-                  <td>{formatCurrencyList(normalized, area.costs, "Free")}</td>
-                  <td>{formatCurrencyList(normalized, area.rewards, "None")}</td>
-                  <td>{area.unlockTime == null ? "Not reached" : timeText(area.unlockTime)}</td>
-                  <td>{area.segmentTime == null ? "—" : timeText(area.segmentTime)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
-      </section>
 
-      <section className="panel">
-        <h2>Final Income / Second</h2>
+        <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5"><div className="flex items-center gap-2 mb-4"><Icon name="area" /><h2 className="text-xl font-black text-white">Area Progression</h2></div><div className="overflow-auto"><table className="w-full text-sm text-white"><thead className="text-slate-200 border-b border-slate-700"><tr><th className="text-left py-2">Area</th><th className="text-left py-2">Costs</th><th className="text-left py-2">Rewards</th><th className="text-right py-2">Reached At</th><th className="text-right py-2">Time From Previous</th></tr></thead><tbody>{sim.areaRows.map((area) => <tr key={area.id} className="border-b border-slate-800 hover:bg-slate-800/70"><td className="py-2 font-bold text-white">{area.name}</td><td className="py-2 text-slate-100">{formatCurrencyList(normalizedModel, area.costs, "Free")}</td><td className="py-2 text-slate-100">{formatCurrencyList(normalizedModel, area.rewards, "None")}</td><td className="text-right py-2 text-slate-100">{area.unlockTime == null ? "Not reached" : timeText(area.unlockTime)}</td><td className="text-right py-2 font-black text-white">{area.segmentTime == null ? "—" : timeText(area.segmentTime)}</td></tr>)}</tbody></table></div></CardContent></Card>
 
-        <div className="incomeGrid">
-          {normalized.currencies.map((currency) => (
-            <div className="incomeCard" key={currency.id}>
-              <span>{currency.name}</span>
-              <strong>{compact(simulation.finalIncome[currency.id] || 0)}</strong>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5"><h2 className="text-xl font-black text-white mb-4">Final Income / Second</h2><div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={incomeChart}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="name" stroke="#e2e8f0" /><YAxis stroke="#e2e8f0" /><Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #475569", color: "#fff" }} formatter={(value) => compact(value)} /><Bar dataKey="income" fill="#818cf8" /></BarChart></ResponsiveContainer></div></CardContent></Card>
+          <Card className="bg-slate-900 border-slate-700"><CardContent className="p-5"><div className="flex items-center gap-2 mb-4"><Icon name="upgrade" /><h2 className="text-xl font-black text-white">Upgrade Levels Reached</h2></div>{normalizedModel.upgrades.length === 0 ? <p className="text-sm text-slate-200 rounded-xl bg-slate-800 border border-slate-700 p-3">No upgrades yet.</p> : <div className="space-y-3">{normalizedModel.upgrades.map((upgrade) => <div key={upgrade.id} className="rounded-xl bg-slate-800 border border-slate-700 p-3 flex items-center justify-between gap-4"><div><p className="font-black text-white">{upgrade.name}</p><p className="text-xs text-slate-200">Costs {currencyName(normalizedModel, upgrade.currencyId)} · Multiplies {currencyName(normalizedModel, upgrade.affectsCurrencyId)}</p></div><p className="text-xl font-black text-white shrink-0">{sim.levels[upgrade.id] || 0}/{upgrade.maxLevel}</p></div>)}</div>}</CardContent></Card>
         </div>
-      </section>
-
-      <section className="panel">
-        <h2>Upgrade Levels Reached</h2>
-
-        {normalized.upgrades.length === 0 && <p className="muted">No upgrades yet.</p>}
-
-        <div className="incomeGrid">
-          {normalized.upgrades.map((upgrade) => (
-            <div className="incomeCard" key={upgrade.id}>
-              <span>{upgrade.name}</span>
-              <strong>
-                {simulation.levels[upgrade.id] || 0}/{upgrade.maxLevel}
-              </strong>
-            </div>
-          ))}
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
