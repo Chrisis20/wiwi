@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { EMPTY_MODEL, EXAMPLE_MODEL } from "./balancerData";
 import {
   LineChart,
   Line,
@@ -266,7 +265,9 @@ export default function IncrementalGameBalancer() {
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <Icon name="app" className="w-7 h-7" />
-              <Badge className="rounded-full bg-indigo-600 text-white">Clean Modular Builder</Badge>
+              <Badge className="rounded-full bg-indigo-600 text-white">
+                Clean Modular Builder
+              </Badge>
               <Badge
                 className={
                   testsPassed
@@ -320,11 +321,21 @@ export default function IncrementalGameBalancer() {
               </div>
 
               <div className="grid grid-cols-5 gap-2">
-                <TabButton active={tab === "global"} onClick={() => setTab("global")}>Main</TabButton>
-                <TabButton active={tab === "currencies"} onClick={() => setTab("currencies")}>Money</TabButton>
-                <TabButton active={tab === "sources"} onClick={() => setTab("sources")}>Sources</TabButton>
-                <TabButton active={tab === "upgrades"} onClick={() => setTab("upgrades")}>Ups</TabButton>
-                <TabButton active={tab === "areas"} onClick={() => setTab("areas")}>Areas</TabButton>
+                <TabButton active={tab === "global"} onClick={() => setTab("global")}>
+                  Main
+                </TabButton>
+                <TabButton active={tab === "currencies"} onClick={() => setTab("currencies")}>
+                  Money
+                </TabButton>
+                <TabButton active={tab === "sources"} onClick={() => setTab("sources")}>
+                  Sources
+                </TabButton>
+                <TabButton active={tab === "upgrades"} onClick={() => setTab("upgrades")}>
+                  Ups
+                </TabButton>
+                <TabButton active={tab === "areas"} onClick={() => setTab("areas")}>
+                  Areas
+                </TabButton>
               </div>
 
               {tab === "global" && (
@@ -351,15 +362,24 @@ export default function IncrementalGameBalancer() {
                   />
 
                   <div className="grid grid-cols-3 gap-3">
-                    <Button className="bg-slate-700 hover:bg-slate-600 text-white" onClick={() => setModel(clone(EMPTY_MODEL))}>
+                    <Button
+                      className="bg-slate-700 hover:bg-slate-600 text-white"
+                      onClick={() => setModel(clone(EMPTY_MODEL))}
+                    >
                       Clean
                     </Button>
 
-                    <Button className="bg-indigo-600 hover:bg-indigo-500 text-white" onClick={() => setModel(clone(EXAMPLE_MODEL))}>
+                    <Button
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white"
+                      onClick={() => setModel(clone(EXAMPLE_MODEL))}
+                    >
                       Example
                     </Button>
 
-                    <Button className="border border-slate-500 text-white hover:bg-slate-800" onClick={() => setShowTests((value) => !value)}>
+                    <Button
+                      className="border border-slate-500 text-white hover:bg-slate-800"
+                      onClick={() => setShowTests((value) => !value)}
+                    >
                       {showTests ? "Hide" : "Tests"}
                     </Button>
                   </div>
@@ -385,8 +405,16 @@ export default function IncrementalGameBalancer() {
                 <div className="space-y-4">
                   {normalizedModel.currencies.map((currency, index) => (
                     <div key={currency.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3">
-                      <TextField label="Currency name" value={currency.name} setValue={(name) => setCurrency(index, { name })} />
-                      <NumberField label="Starting amount" value={currency.startingAmount} setValue={(startingAmount) => setCurrency(index, { startingAmount: positive(startingAmount, 0) })} />
+                      <TextField
+                        label="Currency name"
+                        value={currency.name}
+                        setValue={(name) => setCurrency(index, { name })}
+                      />
+                      <NumberField
+                        label="Starting amount"
+                        value={currency.startingAmount}
+                        setValue={(startingAmount) => setCurrency(index, { startingAmount: positive(startingAmount, 0) })}
+                      />
                     </div>
                   ))}
 
@@ -400,16 +428,40 @@ export default function IncrementalGameBalancer() {
                 <div className="space-y-4">
                   {normalizedModel.generators.map((gen, index) => (
                     <div key={gen.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3">
-                      <TextField label="Source name" value={gen.name} setValue={(name) => setGenerator(index, { name })} />
+                      <TextField
+                        label="Source name"
+                        value={gen.name}
+                        setValue={(name) => setGenerator(index, { name })}
+                      />
 
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-200">Produces</label>
-                        <CurrencySelect model={normalizedModel} value={gen.currencyId} onChange={(currencyId) => setGenerator(index, { currencyId })} />
+                        <CurrencySelect
+                          model={normalizedModel}
+                          value={gen.currencyId}
+                          onChange={(currencyId) => setGenerator(index, { currencyId })}
+                        />
                       </div>
 
-                      <NumberField label="Amount earned" value={gen.baseAmount} setValue={(baseAmount) => setGenerator(index, { baseAmount: positive(baseAmount, 0) })} />
-                      <NumberField label="Every X seconds" value={gen.everySeconds} setValue={(everySeconds) => setGenerator(index, { everySeconds: positiveNonZero(everySeconds, 1) })} step={0.5} />
-                      <NumberField label="Area growth multiplier" value={gen.growthPerArea} setValue={(growthPerArea) => setGenerator(index, { growthPerArea: Math.max(toNumber(growthPerArea, 1), 1) })} step={0.05} />
+                      <NumberField
+                        label="Amount earned"
+                        value={gen.baseAmount}
+                        setValue={(baseAmount) => setGenerator(index, { baseAmount: positive(baseAmount, 0) })}
+                      />
+
+                      <NumberField
+                        label="Every X seconds"
+                        value={gen.everySeconds}
+                        setValue={(everySeconds) => setGenerator(index, { everySeconds: positiveNonZero(everySeconds, 1) })}
+                        step={0.5}
+                      />
+
+                      <NumberField
+                        label="Area growth multiplier"
+                        value={gen.growthPerArea}
+                        setValue={(growthPerArea) => setGenerator(index, { growthPerArea: Math.max(toNumber(growthPerArea, 1), 1) })}
+                        step={0.05}
+                      />
                     </div>
                   ))}
 
@@ -429,23 +481,62 @@ export default function IncrementalGameBalancer() {
 
                   {normalizedModel.upgrades.map((upgrade, index) => (
                     <div key={upgrade.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-3">
-                      <TextField label="Upgrade name" value={upgrade.name} setValue={(name) => setUpgrade(index, { name })} />
+                      <TextField
+                        label="Upgrade name"
+                        value={upgrade.name}
+                        setValue={(name) => setUpgrade(index, { name })}
+                      />
 
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-200">Costs currency</label>
-                        <CurrencySelect model={normalizedModel} value={upgrade.currencyId} onChange={(currencyId) => setUpgrade(index, { currencyId })} />
+                        <CurrencySelect
+                          model={normalizedModel}
+                          value={upgrade.currencyId}
+                          onChange={(currencyId) => setUpgrade(index, { currencyId })}
+                        />
                       </div>
 
                       <div className="space-y-1">
                         <label className="text-xs font-semibold text-slate-200">Multiplies</label>
-                        <CurrencySelect model={normalizedModel} value={upgrade.affectsCurrencyId} onChange={(affectsCurrencyId) => setUpgrade(index, { affectsCurrencyId })} includeAll />
+                        <CurrencySelect
+                          model={normalizedModel}
+                          value={upgrade.affectsCurrencyId}
+                          onChange={(affectsCurrencyId) => setUpgrade(index, { affectsCurrencyId })}
+                          includeAll
+                        />
                       </div>
 
-                      <NumberField label="First cost" value={upgrade.firstCost} setValue={(firstCost) => setUpgrade(index, { firstCost: positive(firstCost, 0) })} />
-                      <NumberField label="Cost growth" value={upgrade.costGrowth} setValue={(costGrowth) => setUpgrade(index, { costGrowth: Math.max(toNumber(costGrowth, 1), 1) })} step={0.05} />
-                      <NumberField label="Multiplier per buy" value={upgrade.multiplierPerBuy} setValue={(multiplierPerBuy) => setUpgrade(index, { multiplierPerBuy: Math.max(toNumber(multiplierPerBuy, 1), 1) })} step={0.05} />
-                      <NumberField label="Max level" value={upgrade.maxLevel} setValue={(maxLevel) => setUpgrade(index, { maxLevel: Math.round(clamp(maxLevel, 1, 999)) })} />
-                      <NumberField label="Unlocks at area" value={upgrade.unlockArea} setValue={(unlockArea) => setUpgrade(index, { unlockArea: Math.round(clamp(unlockArea, 1, 999)) })} />
+                      <NumberField
+                        label="First cost"
+                        value={upgrade.firstCost}
+                        setValue={(firstCost) => setUpgrade(index, { firstCost: positive(firstCost, 0) })}
+                      />
+
+                      <NumberField
+                        label="Cost growth"
+                        value={upgrade.costGrowth}
+                        setValue={(costGrowth) => setUpgrade(index, { costGrowth: Math.max(toNumber(costGrowth, 1), 1) })}
+                        step={0.05}
+                      />
+
+                      <NumberField
+                        label="Multiplier per buy"
+                        value={upgrade.multiplierPerBuy}
+                        setValue={(multiplierPerBuy) => setUpgrade(index, { multiplierPerBuy: Math.max(toNumber(multiplierPerBuy, 1), 1) })}
+                        step={0.05}
+                      />
+
+                      <NumberField
+                        label="Max level"
+                        value={upgrade.maxLevel}
+                        setValue={(maxLevel) => setUpgrade(index, { maxLevel: Math.round(clamp(maxLevel, 1, 999)) })}
+                      />
+
+                      <NumberField
+                        label="Unlocks at area"
+                        value={upgrade.unlockArea}
+                        setValue={(unlockArea) => setUpgrade(index, { unlockArea: Math.round(clamp(unlockArea, 1, 999)) })}
+                      />
                     </div>
                   ))}
 
@@ -459,7 +550,11 @@ export default function IncrementalGameBalancer() {
                 <div className="space-y-4">
                   {normalizedModel.areas.map((area, index) => (
                     <div key={area.id} className="rounded-2xl bg-slate-800 border border-slate-700 p-3 space-y-4">
-                      <TextField label="Area name" value={area.name} setValue={(name) => setArea(index, { name })} />
+                      <TextField
+                        label="Area name"
+                        value={area.name}
+                        setValue={(name) => setArea(index, { name })}
+                      />
 
                       <CurrencyAmountRows
                         title="Costs required to unlock this area"
@@ -581,7 +676,9 @@ export default function IncrementalGameBalancer() {
                     <h2 className="text-xl font-black text-white">Suggested Next Area</h2>
                   </div>
 
-                  <p className="text-sm text-slate-200">Uses your final income and target unlock time.</p>
+                  <p className="text-sm text-slate-200">
+                    Uses your final income and target unlock time.
+                  </p>
 
                   <div className="p-3 rounded-xl bg-slate-800 border border-slate-700">
                     <p className="text-xs font-bold text-slate-300">Suggested cost</p>

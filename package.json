@@ -1,6 +1,8 @@
 {
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
+    "framer-motion": "^12.38.0",
+    "recharts": "^3.8.1",
     "tailwindcss": "^4.2.4"
   }
 }
